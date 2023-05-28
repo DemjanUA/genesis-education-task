@@ -58,7 +58,7 @@ func main() {
 	api.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		// Dealing with www-form-urlencoded body
+		// ====== Dealing with www-form-urlencoded body ====== //
 		r.ParseForm()
 
 		userEmail, ok := r.PostForm["email"]
@@ -73,13 +73,12 @@ func main() {
 		}
 		email := userEmail[0]
 
-		// Read file storage
+		// ====== Read file storage ====== //
 		emailStorageFile, err := os.Open("email.storage.json")
 
 		if err != nil {
 			fmt.Println(err)
 		}
-
 		defer emailStorageFile.Close()
 
 		byteEmailStorageFile, _ := ioutil.ReadAll(emailStorageFile)
@@ -89,7 +88,7 @@ func main() {
 			fmt.Println("Can not unmarshal JSON")
 		}
 
-		// Check if exist
+		// ====== Check if email exist ====== //
 		if arrayContains(emails, email) {
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(map[string]interface{}{
@@ -103,7 +102,7 @@ func main() {
 		slice := append(emails, email)
 		fmt.Println(PrettyPrint(slice))
 
-		// Write file storage
+		// ====== Write file storage ====== //
 		content, err := json.Marshal(slice)
 		err = ioutil.WriteFile("email.storage.json", content, 0644)
 
@@ -114,14 +113,16 @@ func main() {
 				"statusCode": 500,
 				"data":       "Internal Server Error",
 			})
+			return
 		}
 
-		// Sending response
+		// Sending response ====== //
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":     "success",
 			"statusCode": 200,
 			"data":       "Subscribed",
 		})
+		return
 	}).Methods("POST")
 
 	api.HandleFunc("/sendEmails", func(w http.ResponseWriter, r *http.Request) {
