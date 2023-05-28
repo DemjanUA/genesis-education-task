@@ -116,7 +116,7 @@ func main() {
 			return
 		}
 
-		// Sending response ====== //
+		// ====== Sending response ====== //
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":     "success",
 			"statusCode": 200,
