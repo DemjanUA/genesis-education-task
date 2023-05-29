@@ -5,6 +5,7 @@ WORKDIR /usr/src/app
 COPY . ./
 
 RUN go get -u github.com/gorilla/mux
+RUN go get github.com/sendgrid/sendgrid-go
 RUN go mod download
 RUN go mod verify
 
