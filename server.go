@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
 type CoinlayerResponse struct {
@@ -33,25 +36,13 @@ func main() {
 
 	api.HandleFunc("/rate", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		resp, err := http.Get("http://api.coinlayer.com/live?access_key=06f05f91a0c78ceb874adc4d6e65bdb2&target=UAH")
 
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("500 - Something bad happened!"))
-		}
-
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-
-		var result CoinlayerResponse
-		if err := json.Unmarshal(body, &result); err != nil {
-			fmt.Println("Can not unmarshal JSON")
-		}
+		BTCRate := getBTCValue(w)
 
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":     "success",
 			"statusCode": 200,
-			"value":      result.Rates.BTC,
+			"value":      BTCRate,
 		})
 	}).Methods("GET")
 
@@ -127,6 +118,32 @@ func main() {
 
 	api.HandleFunc("/sendEmails", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		// ====== Read file storage ====== //
+		emailStorageFile, err := os.Open("email.storage.json")
+
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer emailStorageFile.Close()
+
+		byteEmailStorageFile, _ := ioutil.ReadAll(emailStorageFile)
+
+		var emails EmailStorage
+		if err := json.Unmarshal(byteEmailStorageFile, &emails); err != nil {
+			fmt.Println("Can not unmarshal JSON")
+		}
+		// ====== ====== ====== //
+
+		BTCRate := getBTCValue(w)
+
+		messageText := fmt.Sprintf("Current BTC to UAH rate is: %f", BTCRate)
+
+		for _, email := range emails {
+			fmt.Println("emails:", email)
+			sendBTCEmail(email, messageText)
+		}
+
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":     "success",
 			"statusCode": 200,
@@ -149,4 +166,43 @@ func arrayContains(arr []string, e string) bool {
 		}
 	}
 	return false
+}
+
+func sendBTCEmail(email string, messageText string) {
+	from := mail.NewEmail("Dmytro Uchkin", "dimon97xl+sandgrid@gmail.com") // Change to your verified sender
+
+	subject := "BTC to UAH Rate"
+
+	to := mail.NewEmail("Recipient", email) // Change to your recipient
+
+	htmlContent := "<span>" + messageText + "</span>"
+	message := mail.NewSingleEmail(from, subject, to, messageText, htmlContent)
+	client := sendgrid.NewSendClient("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")
+	response, err := client.Send(message)
+
+	if err != nil {
+		log.Println(err)
+	} else {
+		fmt.Println(response.StatusCode)
+		fmt.Println(response.Headers)
+	}
+}
+
+func getBTCValue(w http.ResponseWriter) float64 {
+	resp, err := http.Get("http://api.coinlayer.com/live?access_key=06f05f91a0c78ceb874adc4d6e65bdb2&target=UAH")
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Something bad happened!"))
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	var result CoinlayerResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		fmt.Println("Can not unmarshal JSON")
+	}
+
+	return result.Rates.BTC
 }
